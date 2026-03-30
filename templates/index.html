@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🤖 Robo Tamagotchi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            background: #1a1a2e;
+            touch-action: pan-y;
+        }
+
+        /* Sky backgrounds */
+        #sky {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            transition: background 2s ease;
+        }
+
+        #sky.dawn {
+            background: linear-gradient(to bottom, #FF6B6B 0%, #FFA500 30%, #87CEEB 100%);
+        }
+
+        #sky.day {
+            background: linear-gradient(to bottom, #87CEEB 0%, #B4E5F8 100%);
+        }
+
+        #sky.dusk {
+            background: linear-gradient(to bottom, #FF6B6B 0%, #8B4789 50%, #1a1a2e 100%);
+        }
+
+        #sky.night {
+            background: linear-gradient(to bottom, #0F0F1E 0%, #1a1a2e 100%);
+        }
+
+        #sky.dead {
+            background: linear-gradient(to bottom, #2c2c2c 0%, #1a1a1a 100%);
+        }
+
+        /* Celestial body */
+        #celestial {
+            position: absolute;
+            font-size: 80px;
+            top: 50px;
+            right: 80px;
+            animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(255,255,255,0.5));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* Stats panel */
+        #stats {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.3);
+            padding: 5px 12px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+
+        /* Speech bubble - FULL DISPLAY */
+        #speech-bubble {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 25px 35px;
+            border-radius: 25px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+            font-size: 18px;
+            max-width: 85%;
+            max-height: 60vh;
+            min-width: 280px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 150;
+            pointer-events: none;
+            line-height: 1.6;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            overflow-y: auto;
+            white-space: normal;
+        }
+
+        #speech-bubble.visible {
+            opacity: 1;
+        }
+
+        #speech-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 15px solid white;
+        }
+
+        /* Tamagotchi character */
+        #tamagotchi {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 180px;
+            transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+        }
+
+        #tamagotchi.flipped {
+            transform: translateX(-50%) scaleX(-1);
+        }
+
+        #tamagotchi.dead {
+            filter: grayscale(100%) opacity(0.5);
+        }
+
+        /* Ground */
+        #ground {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            height: 140px;
+            background: linear-gradient(to bottom, #2ecc71 0%, #27ae60 100%);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.2);
+        }
+
+        #ground.dead {
+            background: linear-gradient(to bottom, #555 0%, #333 100%);
+        }
+
+        /* Control buttons */
+        #controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        #controls.dead {
+            display: none;
+        }
+
+        .btn {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn:active {
+            transform: scale(0.9);
+        }
+
+        .btn.chat {
+            width: 75px;
+            height: 75px;
+            font-size: 36px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+        }
+
+        /* Restart button */
+        #restart-btn {
+            position: fixed;
+            bottom: 50%;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            padding: 20px 40px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 150;
+            font-weight: bold;
+        }
+
+        #restart-btn.visible {
+            display: block;
+        }
+
+        #restart-btn:active {
+            transform: translate(-50%, 50%) scale(0.95);
+        }
+
+        /* Chat input */
+        #chat-input-container {
+            position: fixed;
+            bottom: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            transition: bottom 0.3s ease;
+            z-index: 200;
+        }
+
+        #chat-input-container.visible {
+            bottom: 30px;
+        }
+
+        #chat-input {
+            width: 100%;
+            padding: 20px 60px 20px 20px;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            background: white;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            outline: none;
+        }
+
+        #chat-input:disabled {
+            opacity: 0.6;
+        }
+
+        #chat-send {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        #chat-send:active {
+            transform: translateY(-50%) scale(0.9);
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            #celestial {
+                font-size: 60px;
+                top: 30px;
+                right: 30px;
+            }
+
+            #stats {
+                font-size: 15px;
+            }
+
+            #speech-bubble {
+                font-size: 16px;
+                padding: 20px 28px;
+                max-width: 90%;
+                max-height: 65vh;
+                min-width: 250px;
+            }
+
+            #tamagotchi {
+                width: 150px;
+                height: 150px;
+            }
+
+            .btn {
+                width: 55px;
+                height: 55px;
+                font-size: 24px;
+            }
+
+            .btn.chat {
+                width: 65px;
+                height: 65px;
+                font-size: 32px;
+            }
+
+            #restart-btn {
+                font-size: 20px;
+                padding: 15px 30px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #speech-bubble {
+                font-size: 15px;
+                padding: 18px 24px;
+                max-width: 92%;
+                min-width: 220px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sky -->
+    <div id="sky" class="day">
+        <div id="celestial">☀️</div>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats">
+        <div class="stat">
+            <span>📍</span>
+            <span id="location-stat">Loading...</span>
+        </div>
+        <div class="stat">
+            <span>🌡️</span>
+            <span id="temp-stat">--°C</span>
+        </div>
+        <div class="stat">
+            <span>🍕</span>
+            <span id="food-stat">80%</span>
+        </div>
+        <div class="stat">
+            <span>🔋</span>
+            <span id="battery-stat">100%</span>
+        </div>
+        <div class="stat">
+            <span>❤️</span>
+            <span id="happiness-stat">70%</span>
+        </div>
+    </div>
+
+    <!-- Speech bubble -->
+    <div id="speech-bubble"></div>
+
+    <!-- Tamagotchi -->
+    <div id="tamagotchi">
+        <canvas id="canvas" width="180" height="180"></canvas>
+    </div>
+
+    <!-- Ground -->
+    <div id="ground"></div>
+
+    <!-- Restart button -->
+    <button id="restart-btn" onclick="restart()">🔄 Restart</button>
+
+    <!-- Controls -->
+    <div id="controls">
+        <button class="btn" onclick="feed()">🍕</button>
+        <button class="btn" onclick="toggleSleep()">😴</button>
+        <button class="btn" onclick="play()">🎮</button>
+        <button class="btn" onclick="getFact()">💡</button>
+        <button class="btn chat" onclick="toggleChat()">💬</button>
+    </div>
+
+    <!-- Chat input -->
+    <div id="chat-input-container">
+        <input type="text" id="chat-input" placeholder="Talk to Robo..." autocomplete="off">
+        <button id="chat-send" onclick="sendChat()">➤</button>
+    </div>
+
+    <script>
+        // Global state
+        let gameState = {};
+        let canvas, ctx;
+        let gyroSupported = false;
+        let ttsSupported = false;
+        let lastSpeechId = -1;
+        let isSendingMessage = false;
+
+        // Initialize
+        function init() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+            
+            if ('speechSynthesis' in window) {
+                ttsSupported = true;
+                console.log('✓ TTS enabled');
+            }
+            
+            updateState();
+            setInterval(updateState, 2000);
+            setInterval(animate, 150);
+            setupGyroscope();
+            
+            console.log('✓ Tamagotchi initialized');
+        }
+
+        // Update state from server
+        async function updateState() {
+            try {
+                const response = await fetch('/api/state');
+                if (!response.ok) throw new Error('State fetch failed');
+                gameState = await response.json();
+                renderState();
+            } catch (error) {
+                console.error('Update failed:', error);
+            }
+        }
+
+        // Render game state
+        function renderState() {
+            // Update stats
+            document.getElementById('food-stat').textContent = Math.round(gameState.food) + '%';
+            document.getElementById('battery-stat').textContent = Math.round(gameState.battery) + '%';
+            document.getElementById('happiness-stat').textContent = Math.round(gameState.happiness) + '%';
+            document.getElementById('location-stat').textContent = gameState.location || 'Unknown';
+            document.getElementById('temp-stat').textContent = (gameState.temperature || '--') + '°C';
+            
+            const sky = document.getElementById('sky');
+            const ground = document.getElementById('ground');
+            const controls = document.getElementById('controls');
+            const restartBtn = document.getElementById('restart-btn');
+            const tamagotchi = document.getElementById('tamagotchi');
+            
+            // Handle death state
+            if (gameState.is_dead) {
+                sky.className = 'dead';
+                ground.classList.add('dead');
+                controls.classList.add('dead');
+                restartBtn.classList.add('visible');
+                tamagotchi.classList.add('dead');
+            } else {
+                sky.className = gameState.time_of_day || 'day';
+                ground.classList.remove('dead');
+                controls.classList.remove('dead');
+                restartBtn.classList.remove('visible');
+                tamagotchi.classList.remove('dead');
+            }
+            
+            // Update celestial body
+            const celestial = document.getElementById('celestial');
+            if (gameState.is_dead) {
+                celestial.textContent = '💀';
+            } else if (gameState.time_of_day === 'night') {
+                celestial.textContent = '🌙';
+            } else if (gameState.time_of_day === 'dawn') {
+                celestial.textContent = '🌅';
+            } else if (gameState.time_of_day === 'dusk') {
+                celestial.textContent = '🌆';
+            } else {
+                celestial.textContent = '☀️';
+            }
+            
+            // Update position
+            tamagotchi.style.left = (gameState.position_x || 50) + '%';
+            
+            if (gameState.facing_right) {
+                tamagotchi.classList.remove('flipped');
+            } else {
+                tamagotchi.classList.add('flipped');
+            }
+            
+            handleSpeech();
+        }
+
+        // Handle speech display
+        function handleSpeech() {
+            const speechBubble = document.getElementById('speech-bubble');
+            
+            if (gameState.current_speech && gameState.speech_id !== lastSpeechId) {
+                lastSpeechId = gameState.speech_id;
+                showSpeech(gameState.current_speech);
+            } else if (!gameState.current_speech) {
+                speechBubble.classList.remove('visible');
+            }
+        }
+
+        // Show speech bubble with TTS
+        function showSpeech(text) {
+            console.log('📢 Showing speech:', text);
+            
+            const bubble = document.getElementById('speech-bubble');
+            bubble.textContent = text;
+            bubble.classList.add('visible');
+            
+            // Text-to-speech - READ THE FULL FACT
+            if (ttsSupported && !text.includes('Thinking') && !text.includes('Finding')) {
+                try {
+                    speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 0.95;  // Slightly slower for facts
+                    utterance.pitch = 1.2;
+                    utterance.volume = 1.0;
+                    
+                    utterance.onstart = () => console.log('🔊 TTS started');
+                    utterance.onend = () => console.log('🔇 TTS finished');
+                    utterance.onerror = (e) => console.error('🔇 TTS error:', e);
+                    
+                    speechSynthesis.speak(utterance);
+                } catch (error) {
+                    console.error('TTS error:', error);
+                }
+            }
+            
+            clearTimeout(window.speechTimer);
+            
+            // Display time
+            let displayTime = 4000;
+            
+            if (text.includes('💡')) {
+                displayTime = 12000; // 12 seconds for facts
+            }
+            
+            window.speechTimer = setTimeout(() => {
+                bubble.classList.remove('visible');
+            }, displayTime);
+        }
+
+        // Animation loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const state = gameState.state || 'idle';
+            const frame = gameState.animation_frame || 0;
+            
+            if (state === 'dead') {
+                drawDead(frame);
+                return;
+            }
+            
+            switch(state) {
+                case 'walking': drawWalking(frame); break;
+                case 'sleeping': drawSleeping(frame); break;
+                case 'eating': drawEating(frame); break;
+                case 'happy': drawHappy(frame); break;
+                case 'talking': drawTalking(frame); break;
+                case 'yawning': drawYawning(frame); break;
+                case 'whistling': drawWhistling(frame); break;
+                case 'singing': drawSinging(frame); break;
+                case 'dancing': drawDancing(frame); break;
+                case 'waving': drawWaving(frame); break;
+                case 'thinking': drawThinking(frame); break;
+                case 'curious': drawCurious(frame); break;
+                default: drawIdle(frame);
+            }
+        }
+
+        // Draw functions
+        function drawDead(frame) {
+            ctx.save();
+            ctx.translate(90, 110);
+            ctx.rotate(Math.PI / 2);
+            drawRobot(0, 0, 0.8, false);
+            ctx.restore();
+            
+            ctx.fillStyle = '#ff0000';
+            ctx.font = 'bold 40px Arial';
+            ctx.fillText('💀', 120, 80);
+            
+            ctx.fillStyle = '#666';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText('R.I.P.', 75, 140);
+        }
+
+        function drawIdle(frame) {
+            const bob = Math.sin(frame * 0.5) * 3;
+            drawRobot(90, 60 + bob, 1, false);
+        }
+
+        function drawWalking(frame) {
+            const legSwing = frame % 2 === 0 ? 5 : -5;
+            drawRobot(90, 60, 1, true, legSwing);
+        }
+
+        function drawSleeping(frame) {
+            const breathe = Math.sin(frame * 0.3) * 2;
+            ctx.save();
+            ctx.translate(90, 90);
+            ctx.rotate(Math.PI / 2);
+            drawRobot(0, 0 + breathe, 0.8, false);
+            ctx.restore();
+            
+            ctx.fillStyle = '#3d5a80';
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('Z', 130, 70 + Math.sin(frame * 0.5) * 5);
+            ctx.fillText('Z', 145, 55 + Math.sin(frame * 0.5 + 1) * 5);
+        }
+
+        function drawEating(frame) {
+            drawIdle(frame);
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText('🍕', 130, 60);
+        }
+
+        function drawHappy(frame) {
+            const jump = Math.abs(Math.sin(frame * 0.8)) * 20;
+            drawRobot(90, 60 - jump, 1, false, 0, true);
+        }
+
+        function drawTalking(frame) {
+            const bob = Math.sin(frame * 0.8) * 2;
+            drawRobot(90, 60 + bob, 1, false, 0, false, true);
+        }
+
+        function drawYawning(frame) {
+            drawIdle(frame);
+            const yawnOpen = Math.sin(frame * 0.8) * 0.5 + 0.5;
+            ctx.fillStyle = '#3d5a80';
+            ctx.beginPath();
+            ctx.ellipse(90, 60, 6, 4 + yawnOpen * 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawWhistling(frame) {
+            drawIdle(frame);
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText('♫', 120 + Math.sin(frame * 0.5) * 5, 40);
+            ctx.fillText('♪', 130, 50 + Math.sin(frame * 0.5 + 1) * 5);
+        }
+
+        function drawSinging(frame) {
+            const bob = Math.sin(frame) * 5;
+            drawRobot(90, 60 + bob, 1, false, 0, true);
+            ctx.font = 'bold 24px Arial';
+            ctx.fillText('🎵', 125, 35 + Math.sin(frame * 0.8) * 5);
+            ctx.fillText('🎶', 135, 50 + Math.sin(frame * 0.8 + 1) * 5);
+        }
+
+        function drawDancing(frame) {
+            const sway = Math.sin(frame * 0.5) * 10;
+            const jump = Math.abs(Math.sin(frame * 0.8)) * 15;
+            ctx.save();
+            ctx.translate(90, 60 - jump);
+            ctx.rotate(sway * 0.05);
+            drawRobot(0, 0, 1, false, 0, true);
+            ctx.restore();
+        }
+
+        function drawWaving(frame) {
+            drawIdle(frame);
+            const wave = Math.sin(frame * 0.8) * 30;
+            ctx.save();
+            ctx.translate(120, 70);
+            ctx.rotate(wave * 0.02);
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText('👋', 0, 0);
+            ctx.restore();
+        }
+
+        function drawThinking(frame) {
+            drawIdle(frame);
+            ctx.font = 'bold 25px Arial';
+            ctx.fillText('💭', 120, 35);
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText('🤔', 130, 45);
+        }
+
+        function drawCurious(frame) {
+            const bob = Math.sin(frame * 0.5) * 3;
+            drawRobot(90, 60 + bob, 1, false);
+            ctx.fillStyle = '#667eea';
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText('?', 125, 40);
+        }
+
+        // Main robot drawing function
+        function drawRobot(x, y, scale, walking, legSwing = 0, happy = false, talking = false) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            
+            // Antenna
+            ctx.strokeStyle = '#3d5a80';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, -30);
+            ctx.lineTo(0, -45);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#98c1d9';
+            ctx.beginPath();
+            ctx.arc(0, -47, 5, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Head
+            ctx.fillStyle = '#e0e0e0';
+            ctx.beginPath();
+            ctx.roundRect(-20, -30, 40, 35, 10);
+            ctx.fill();
+            ctx.strokeStyle = '#3d5a80';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Eyes
+            if (happy) {
+                ctx.strokeStyle = '#3d5a80';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-12, -20);
+                ctx.lineTo(-8, -17);
+                ctx.lineTo(-4, -20);
+                ctx.moveTo(4, -20);
+                ctx.lineTo(8, -17);
+                ctx.lineTo(12, -20);
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = '#3d5a80';
+                ctx.beginPath();
+                ctx.arc(-10, -18, 4, 0, Math.PI * 2);
+                ctx.arc(10, -18, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = '#98c1d9';
+                ctx.beginPath();
+                ctx.arc(-9, -19, 2, 0, Math.PI * 2);
+                ctx.arc(11, -19, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Mouth
+            ctx.strokeStyle = '#3d5a80';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            if (talking) {
+                ctx.arc(0, -8, 5, 0, Math.PI);
+            } else {
+                ctx.arc(0, -10, 8, 0.2, Math.PI - 0.2);
+            }
+            ctx.stroke();
+            
+            // Body
+            ctx.fillStyle = '#c9d6df';
+            ctx.beginPath();
+            ctx.roundRect(-25, 5, 50, 45, 8);
+            ctx.fill();
+            ctx.strokeStyle = '#3d5a80';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Chest
+            ctx.fillStyle = '#98c1d9';
+            ctx.beginPath();
+            ctx.roundRect(-12, 15, 24, 20, 5);
+            ctx.fill();
+            
+            // Arms
+            ctx.fillStyle = '#c9d6df';
+            if (walking) {
+                ctx.save();
+                ctx.translate(-25, 20);
+                ctx.rotate(legSwing * -0.05);
+                ctx.fillRect(0, 0, 8, 20);
+                ctx.restore();
+                ctx.save();
+                ctx.translate(17, 20);
+                ctx.rotate(legSwing * 0.05);
+                ctx.fillRect(0, 0, 8, 20);
+                ctx.restore();
+            } else {
+                ctx.fillRect(-28, 15, 8, 25);
+                ctx.fillRect(20, 15, 8, 25);
+            }
+            
+            // Legs
+            ctx.fillStyle = '#3d5a80';
+            ctx.fillRect(-10, 50, 10, 18);
+            ctx.fillRect(0, 50, 10, 18);
+            
+            // Feet
+            ctx.fillStyle = '#c9d6df';
+            ctx.beginPath();
+            if (walking) {
+                ctx.ellipse(-5 - legSwing * 0.3, 70, 8, 4, 0, 0, Math.PI * 2);
+                ctx.ellipse(5 + legSwing * 0.3, 70, 8, 4, 0, 0, Math.PI * 2);
+            } else {
+                ctx.ellipse(-5, 70, 8, 4, 0, 0, Math.PI * 2);
+                ctx.ellipse(5, 70, 8, 4, 0, 0, Math.PI * 2);
+            }
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Gyroscope setup
+        function setupGyroscope() {
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                console.log('iOS - gyroscope requires permission');
+            } else if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', handleOrientation);
+                gyroSupported = true;
+                console.log('✓ Gyroscope enabled');
+            }
+            
+            document.addEventListener('touchstart', function requestGyro() {
+                if (!gyroSupported && typeof DeviceOrientationEvent !== 'undefined' && 
+                    typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(response => {
+                            if (response === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation);
+                                gyroSupported = true;
+                                console.log('✓ Gyroscope permission granted');
+                            }
+                        })
+                        .catch(console.error);
+                }
+            }, { once: true });
+        }
+
+        // Handle gyroscope
+        let lastGyroUpdate = 0;
+        function handleOrientation(event) {
+            const now = Date.now();
+            if (now - lastGyroUpdate < 100) return;
+            lastGyroUpdate = now;
+            
+            const gamma = event.gamma;
+            
+            if (gamma !== null && Math.abs(gamma) > 10) {
+                const position = 50 + (gamma / 90) * 45;
+                fetch('/api/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x: position, is_moving: true })
+                }).catch(console.error);
+            } else if (gamma !== null) {
+                fetch('/api/move', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ x: 50, is_moving: false })
+                }).catch(console.error);
+            }
+        }
+
+        // Action functions
+        async function feed() {
+            try {
+                await fetch('/api/feed', { method: 'POST' });
+                await updateState();
+            } catch (error) {
+                console.error('Feed error:', error);
+            }
+        }
+
+        async function toggleSleep() {
+            try {
+                await fetch('/api/sleep', { method: 'POST' });
+                await updateState();
+            } catch (error) {
+                console.error('Sleep error:', error);
+            }
+        }
+
+        async function play() {
+            try {
+                await fetch('/api/play', { method: 'POST' });
+                await updateState();
+            } catch (error) {
+                console.error('Play error:', error);
+            }
+        }
+
+        async function getFact() {
+            try {
+                showSpeech('Finding a fact... 🔍');
+                await fetch('/api/fact', { method: 'POST' });
+                await updateState();
+            } catch (error) {
+                console.error('Fact error:', error);
+            }
+        }
+
+        async function restart() {
+            try {
+                await fetch('/api/restart', { method: 'POST' });
+                await updateState();
+            } catch (error) {
+                console.error('Restart error:', error);
+            }
+        }
+
+        function toggleChat() {
+            const container = document.getElementById('chat-input-container');
+            const input = document.getElementById('chat-input');
+            const isVisible = container.classList.contains('visible');
+            
+            if (isVisible) {
+                container.classList.remove('visible');
+                input.value = '';
+                input.blur();
+            } else {
+                container.classList.add('visible');
+                setTimeout(() => input.focus(), 300);
+            }
+        }
+
+        async function sendChat() {
+            if (isSendingMessage) return;
+
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            console.log('📤 Sending:', message);
+            
+            isSendingMessage = true;
+            input.value = '';
+            input.disabled = true;
+            
+            showSpeech('Thinking...');
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                console.log('📥 Response:', data);
+                
+                if (data.success) {
+                    setTimeout(async () => {
+                        await updateState();
+                        setTimeout(() => toggleChat(), 500);
+                    }, 300);
+                } else {
+                    showSpeech('Oops! Try again 😕');
+                }
+            } catch (error) {
+                console.error('❌ Chat error:', error);
+                showSpeech('Connection error! 😅');
+            } finally {
+                input.disabled = false;
+                isSendingMessage = false;
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatInput = document.getElementById('chat-input');
+            
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendChat();
+                }
+            });
+        });
+
+        // Start the game
+        window.addEventListener('load', () => {
+            init();
+        });
+    </script>
+</body>
+</html>
